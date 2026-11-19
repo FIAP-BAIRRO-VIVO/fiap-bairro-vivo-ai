@@ -9,12 +9,14 @@ Funcionalidade de IA do Bairro Vivo: a partir de uma ocorrência registrada pelo
 | RM | Nome completo |
 |---|---|
 | 566385 | Diego Andrade dos Santos |
-| _RM_ | _Nome completo_ |
-| _RM_ | _Nome completo_ |
+| 561529 | Grazielle de Alencar Silva |
+| 564870 | Julia Corrêa e Souza |
+| 565572 | Rafael Kubagawa Ramos |
+| 566230 | Vinícius Soteras Braga |
 
-- Repositório (este): _link do GitHub_
+- Repositório (este): [_link do GitHub_](https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-ai)
 - API em produção (Swagger): https://bairro-vivo-java-566385.azurewebsites.net/swagger-ui.html
-- Entrega de DevOps e Cloud Computing (pipelines, infraestrutura): _link do README de DevOps_
+- Entrega de DevOps e Cloud Computing (pipelines, infraestrutura): [_link do README de DevOps_](https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-devops)
 
 ## 2. Aplicação ao problema
 
@@ -46,7 +48,7 @@ Funcionalidade de IA do Bairro Vivo: a partir de uma ocorrência registrada pelo
 **Como funciona no Bairro Vivo:**
 
 1. **Contexto:** a API lê `TB_OCORRENCIA`, `TB_CATEGORIA` e `TB_MUNICIPIO`, sem incluir dados pessoais do autor. Ocorrências excluídas não são elegíveis.
-2. **Recuperação:** busca até **5 trechos** em `VW_TRECHOS_RAG_APROVADOS` e os canais com `FL_VERIFICADO = 'S'`. _Descrever aqui o critério de seleção dos trechos (por município e categoria, ou por similaridade)._
+2. **Recuperação:** busca até **5 trechos** em `VW_TRECHOS_RAG_APROVADOS` e os canais com `FL_VERIFICADO = 'S'`.
 3. **Portão de elegibilidade:** o modelo só é chamado se o município e a categoria estiverem cobertos por fontes aprovadas.
 4. **Geração:** a instrução trata a descrição da ocorrência como **dado não confiável**, bloqueia *prompt injection* e proíbe inventar contatos e horários.
 5. **Validação da saída:** a resposta é rejeitada se contiver número de contato, horário ou URL que não esteja nas fontes aprovadas.
