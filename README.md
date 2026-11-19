@@ -14,9 +14,9 @@ Funcionalidade de IA do Bairro Vivo: a partir de uma ocorrência registrada pelo
 | 565572 | Rafael Kubagawa Ramos |
 | 566230 | Vinícius Soteras Braga |
 
-- Repositório (este): [_link do GitHub_](https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-ai)
+- Repositório (este): https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-ai
 - API em produção (Swagger): https://bairro-vivo-java-566385.azurewebsites.net/swagger-ui.html
-- Entrega de DevOps e Cloud Computing (pipelines, infraestrutura): [_link do README de DevOps_](https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-devops)
+- Entrega de DevOps e Cloud Computing (pipelines, infraestrutura): https://github.com/FIAP-BAIRRO-VIVO/fiap-bairro-vivo-devops
 
 ## 2. Aplicação ao problema
 
