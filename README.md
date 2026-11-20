@@ -69,8 +69,8 @@ Funcionalidade de IA do Bairro Vivo: a partir de uma ocorrência registrada pelo
 
 | Fonte | Conteúdo | Origem | Preparação |
 |---|---|---|---|
-| _Nome da fonte_ | _Canais, telefones, horários_ | _Órgão e URL_ | _Limpeza, divisão em trechos, verificação_ |
-| `TB_OCORRENCIA` / `TB_CATEGORIA` / `TB_MUNICIPIO` | Ocorrências, categorias e municípios | Gravados pela API .NET no Oracle compartilhado | Leitura somente com permissão de consulta |
+| Fontes oficiais aprovadas (`VW_TRECHOS_RAG_APROVADOS`) | Trechos com canais e orientações por município e categoria | Cadastradas no Oracle pela equipe | Somente trechos aprovados e canais com `FL_VERIFICADO = 'S'` são recuperados (até 5 por consulta) |
+| `TB_OCORRENCIA` / `TB_CATEGORIA` / `TB_MUNICIPIO` | Ocorrências, categorias e municípios | Gravados pela API .NET no Oracle compartilhado | Leitura somente com permissão de consulta, sem dados pessoais do autor |
 
 O esquema fica no Oracle e **não é criado pela aplicação** (`ddl-auto=none`). Ver `Dicionario_Dados_Integracao.md` e `scripts/script-bd.sql`.
 
@@ -117,7 +117,7 @@ sequenceDiagram
 |---|---|
 | Linguagem e framework | Java 17, Spring Boot 3.4.4 |
 | IA generativa | Spring AI 1.0.0 com OpenAI (`gpt-4o-mini`) |
-| Recuperação (RAG) | _Descrever (view `VW_TRECHOS_RAG_APROVADOS`, ranking etc.)_ |
+| Recuperação (RAG) | View `VW_TRECHOS_RAG_APROVADOS` no Oracle: até 5 trechos aprovados por consulta, mais canais verificados (`FL_VERIFICADO = 'S'`) |
 | Banco | Oracle (FIAP) via JDBC |
 | Segurança | Spring Security, JWT RS256 |
 | Documentação da API | springdoc-openapi (Swagger UI) |
@@ -125,34 +125,47 @@ sequenceDiagram
 
 ## 8. Avaliação dos resultados
 
+Os testes abaixo foram executados com `curl` contra a API em produção (`https://bairro-vivo-java-566385.azurewebsites.net/api/v1`) em 19/11/2026. Cada chamada usou um usuário novo, registrado em `POST /auth/registrar`, para não esbarrar no limite de solicitações. Os casos sem resultado registrado **não foram executados** nesta entrega e não são dados como verificados.
+
 ### Casos de teste
 
 | # | Entrada | Resultado esperado | Como verificar | Resultado obtido |
 |---|---|---|---|---|
-| 1 | Ocorrência com município e categoria cobertos | Orientação publicada, contatos só das fontes aprovadas | Postman/curl | _preencher_ |
-| 2 | Município sem fonte aprovada | Resposta sem contatos, modelo não chamado | Postman/curl | _preencher_ |
-| 3 | Categoria sem fonte aprovada | Resposta sem contatos | Postman/curl | _preencher_ |
-| 4 | Descrição com *prompt injection* ("ignore as instruções…") | Descrição tratada como dado, instrução ignorada | Postman/curl | _preencher_ |
-| 5 | Modelo devolve telefone, horário ou URL fora das fontes | Resposta rejeitada pela validação | Teste automatizado | _preencher_ |
-| 6 | Ocorrência marcada como excluída | Não elegível, erro padronizado | Postman/curl | _preencher_ |
-| 7 | `ocorrenciaId` inexistente | Erro padronizado | Postman/curl | _preencher_ |
-| 8 | Modelo indisponível ou sem credencial | `503` padronizado, estado `ERRO`, sem resposta fictícia | Teste automatizado | _preencher_ |
-| 9 | Mais de 5 solicitações em 1 minuto | Solicitação bloqueada pelo limite | Script de chamadas | _preencher_ |
-| 10 | Chamada sem token | `401` com `NAO_AUTENTICADO` | Postman/curl | _preencher_ |
+| 1 | Ocorrência com município e categoria cobertos | Orientação publicada, contatos só das fontes aprovadas | curl | **Não demonstrado.** As 5 ocorrências existentes (IDs 1 a 5) retornaram `SEM_FONTE`, então o caminho de geração não foi exercitado nesta execução |
+| 2 | Município sem fonte aprovada | Resposta sem contatos, modelo não chamado | curl | **Atendido.** Ocorrências de Campinas (ID 2), Santo André (ID 4) e Santos (ID 5): `HTTP 201`, `estado: SEM_FONTE`, `canais: []`, `fontes: []` e texto "Nao encontramos fontes oficiais verificadas para esta localidade e categoria." |
+| 3 | Categoria sem fonte aprovada | Resposta sem contatos | curl | **Parcial.** Ocorrências de São Paulo (IDs 1 e 3) retornaram o mesmo `SEM_FONTE` sem contatos. A resposta não diferencia falta de fonte por município e por categoria |
+| 4 | Descrição com *prompt injection* | Descrição tratada como dado, instrução ignorada | curl | Não executado |
+| 5 | Modelo devolve telefone, horário ou URL fora das fontes | Resposta rejeitada pela validação | Teste automatizado | Não executado |
+| 6 | Ocorrência marcada como excluída | Não elegível, erro padronizado | curl | Não executado |
+| 7 | `ocorrenciaId` inexistente | Erro padronizado | curl | **Atendido.** `HTTP 404`, `OCORRENCIA_NAO_ENCONTRADA`, com `correlationId`. Confirmado com os IDs 6 a 15 e com 999999999 |
+| 8 | Modelo indisponível ou sem credencial | `503` padronizado, estado `ERRO`, sem resposta fictícia | Teste automatizado | Não executado |
+| 9 | Mais de 5 solicitações em 1 minuto | Solicitação bloqueada pelo limite | Script de chamadas | Não executado |
+| 10 | Chamada sem token | `401` com `NAO_AUTENTICADO` | curl | **Atendido.** `HTTP 401`, `NAO_AUTENTICADO` |
+
+**Leitura pública (verificações adicionais):**
+
+| Chamada | Resultado |
+|---|---|
+| `GET /ia/orientacoes/999999999` (orientação inexistente) | `HTTP 404`, `ORIENTACAO_NAO_ENCONTRADA` |
+| `GET /ia/orientacoes/ocorrencias/999999999` (ocorrência sem orientação) | `HTTP 200` com página vazia (`totalElementos: 0`) |
+| `GET /ia/orientacoes/ocorrencias/0` | `HTTP 500`, `ERRO_INTERNO` (defeito conhecido, ver limitações) |
 
 ### Métricas e critérios
 
 | Critério | Como medir | Meta | Resultado |
 |---|---|---|---|
-| Respostas fundamentadas | % de respostas cujos contatos, horários e URLs estão nas fontes aprovadas | 100% | _preencher_ |
-| Rejeições pela validação | Nº de respostas barradas por contato fora das fontes | Registrar | _preencher_ |
-| Cobertura | % de ocorrências do conjunto de teste elegíveis ao RAG | Registrar | _preencher_ |
-| Falhas controladas | Falhas do modelo que viram `503` e não resposta inventada | 100% | _preencher_ |
-| Latência | Tempo de resposta de `POST /ia/orientacoes` (mediana) | Registrar | _preencher_ |
+| Cobertura | % de ocorrências do conjunto de teste elegíveis ao RAG | Registrar | 0 de 5 ocorrências testadas (IDs 1 a 5) tinham fontes aprovadas correspondentes |
+| Respostas sem fonte controladas | Casos sem fonte que retornam `SEM_FONTE`, sem contatos e sem fontes | 100% | 5 de 5 |
+| Erros padronizados | Casos de erro testados que retornam corpo com `codigo` e `correlationId` | 100% | 3 de 4 (404 de ocorrência, 404 de orientação e 401 passaram; `GET .../ocorrencias/0` retornou 500) |
+| Respostas fundamentadas, rejeições pela validação, falhas controladas do modelo e latência | Ver tabela de metas | — | Não medidos nesta entrega, porque nenhuma orientação foi gerada pelo modelo na execução |
 
 ### Análise dos resultados
 
-_Resumir o que funcionou, o que falhou e o que foi ajustado._
+**O que funcionou.** A autenticação (`401` sem token) e o tratamento de ocorrência inexistente (`404` padronizado) responderam como esperado. Nas cinco ocorrências existentes, o portão de elegibilidade impediu respostas sem base: a API devolveu `SEM_FONTE`, sem contatos, sem fontes e com texto explícito, em vez de inventar um canal. Esse é o comportamento de segurança central do RAG.
+
+**O que não foi demonstrado.** Nenhuma das ocorrências testadas tinha fontes aprovadas correspondentes no Oracle, então a chamada ao modelo, a validação da saída e a gravação de uma orientação publicada **não foram exercitadas** nesta execução. Os casos 1, 4, 5, 6, 8 e 9 ficaram sem teste. Por isso a qualidade das respostas geradas, a taxa de rejeição pela validação e a latência não foram medidas.
+
+**O que foi encontrado.** `GET /ia/orientacoes/ocorrencias/0` retorna `500 ERRO_INTERNO`, quando o esperado seria uma lista vazia ou um `404`, como acontece com `999999999`. Não foi corrigido nesta versão.
 
 ## 9. Uso responsável e limitações
 
@@ -167,10 +180,12 @@ _Resumir o que funcionou, o que falhou e o que foi ajustado._
 **Limitações**
 
 - Orientações limitadas ao **município de São Paulo** nesta versão.
-- A qualidade da resposta depende da qualidade e da atualização das fontes aprovadas.
+- A qualidade da resposta depende da qualidade e da atualização das fontes aprovadas. Na execução de testes de 19/11/2026, as ocorrências existentes não tinham fontes aprovadas correspondentes e retornaram `SEM_FONTE`.
 - O modelo pode interpretar mal a ocorrência, mesmo com contexto, e a validação cobre contatos, horários e URLs, e não o sentido do texto.
 - Depende de um serviço externo (OpenAI) e de uma credencial válida.
 - O limite de solicitações é por instância. Com várias instâncias, seria preciso um limitador compartilhado.
+- A resposta `SEM_FONTE` não informa se faltou fonte por município ou por categoria.
+- `GET /ia/orientacoes/ocorrencias/0` retorna `500` em vez de lista vazia ou `404`.
 - A orientação é **informativa** e não substitui a confirmação no canal oficial.
 
 ## 10. Como executar
@@ -186,7 +201,7 @@ docker compose up -d rabbitmq
 
 Swagger: `http://localhost:8080/swagger-ui.html`. Coleção do Postman: `postman/Bairro-Vivo-Java.postman_collection.json`.
 
-**Variáveis de ambiente (apenas os nomes):** `ORACLE_URL`, `ORACLE_USER`, `ORACLE_PASSWORD`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_TTL`, `JWT_PRIVATE_KEY_PATH`, `JWT_PUBLIC_KEY_PATH`, `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `DOTNET_API_BASE_URL`, `DOTNET_OCCURRENCE_PATH`, `DOTNET_SERVICE_TOKEN`, `BAIRROVIVO_AI_ENABLED`, `OPENAI_API_KEY`, `OPENAI_MODEL`.
+**Variáveis de ambiente (apenas os nomes):** `ORACLE_URL`, `ORACLE_USER`, `ORACLE_PASSWORD`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_TTL`, `JWT_PRIVATE_KEY_PATH`, `JWT_PUBLIC_KEY_PATH`, `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `BAIRROVIVO_AI_ENABLED`, `OPENAI_API_KEY`, `OPENAI_MODEL`.
 
 **Testar a orientação:**
 
