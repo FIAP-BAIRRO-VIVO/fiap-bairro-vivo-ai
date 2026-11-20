@@ -74,33 +74,15 @@ Funcionalidade de IA do Bairro Vivo: a partir de uma ocorrência registrada pelo
 
 O esquema fica no Oracle e **não é criado pela aplicação** (`ddl-auto=none`). Ver `Dicionario_Dados_Integracao.md` e `scripts/script-bd.sql`.
 
-### Fluxo entre aplicação, modelo e serviços
+### Arquitetura
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor C as Cidadão
-    participant API as API Java (Spring Boot)
-    participant DB as Oracle (FIAP)
-    participant LLM as OpenAI gpt-4o-mini (Spring AI)
+O fluxo da requisição, passo a passo, está descrito na seção 5. O diagrama abaixo mostra a arquitetura completa: esteira de CI/CD no Azure DevOps, Web App com a API Java (Spring AI + RAG), Oracle com a base de fontes aprovadas, OpenAI e a API .NET.
 
-    C->>API: A. POST /ia/orientacoes {ocorrenciaId} + JWT
-    API->>DB: B. lê ocorrência, categoria e município (sem dados pessoais)
-    API->>DB: B. recupera até 5 trechos aprovados e canais verificados
-    alt sem fonte aprovada para o município/categoria
-        API-->>C: sem contatos (modelo não é chamado)
-    else coberto por fontes aprovadas
-        API->>LLM: C. prompt + ocorrência (dado não confiável) + trechos
-        LLM-->>API: D. texto gerado
-        API->>API: E. valida contatos, horários e URLs
-        API->>DB: E. grava orientação e fontes (PKG_BASE_IA)
-        API-->>C: orientação publicada, com fontes
-    end
-```
+<p align="center">
+  <img src="./images/diagrama-arquitetura.png" alt="Arquitetura do Bairro Vivo" width="100%">
+</p>
 
-### Arquitetura geral
-
-![Arquitetura do Bairro Vivo](./docs/diagrama-arquitetura.png)
+<br>
 
 | Componente | Papel |
 |---|---|
